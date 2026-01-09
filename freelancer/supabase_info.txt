@@ -1,0 +1,198 @@
+- - COMPLETE FREELANCE PLATFORM DATABASE SCHEMA
+-- Current tables with all columns and relationships
+- - =============================================================================
+-- 1. PROFILES TABLE (extends auth.users)
+-- =============================================================================
+CREATE TABLE profiles (
+id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
+user_type VARCHAR(20) CHECK (user_type IN ('freelancer', 'recruiter')) NOT NULL,
+first_name VARCHAR(50),
+last_name VARCHAR(50),
+email VARCHAR(255) UNIQUE,
+phone VARCHAR(20),
+country VARCHAR(100),
+city VARCHAR(100),
+timezone VARCHAR(50),
+profile_image_url TEXT,
+is_profile_complete BOOLEAN DEFAULT FALSE,
+is_active BOOLEAN DEFAULT TRUE,
+created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+- - =============================================================================
+-- 2. SKILL_CATEGORIES TABLE
+-- =============================================================================
+CREATE TABLE skill_categories (
+id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+name VARCHAR(100) NOT NULL UNIQUE,
+description TEXT,
+icon_name VARCHAR(50), -- For Lucide icon names
+display_order INTEGER DEFAULT 0,
+is_active BOOLEAN DEFAULT TRUE,
+created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+- - Current categories: Websites IT & Software, Writing & Content, Design Media & Architecture,
+-- Data Entry & Admin, Engineering & Science, Sales & Marketing, Business Accounting HR & Legal
+- - =============================================================================
+-- 3. SKILLS TABLE
+-- =============================================================================
+CREATE TABLE skills (
+id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+name VARCHAR(100) NOT NULL,
+category_id UUID REFERENCES skill_categories(id) ON DELETE CASCADE,
+description TEXT,
+is_active BOOLEAN DEFAULT TRUE,
+created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+UNIQUE(name, category_id)
+);
+- - Contains ~80+ skills across all categories (JavaScript, React, Python, etc.)
+- - =============================================================================
+-- 4. FREELANCER_PROFILES TABLE (detailed freelancer info)
+-- =============================================================================
+CREATE TABLE freelancer_profiles (
+id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+user_id UUID REFERENCES profiles(id) ON DELETE CASCADE UNIQUE,
+title VARCHAR(200), -- Professional title/tagline
+description TEXT, -- Detailed description
+hourly_rate_min DECIMAL(10,2),
+hourly_rate_max DECIMAL(10,2),
+preferred_rate DECIMAL(10,2),
+availability_hours_per_week INTEGER,
+delivery_time_days INTEGER, -- Average delivery time
+experience_level VARCHAR(20) CHECK (experience_level IN ('beginner', 'intermediate', 'expert')) DEFAULT 'intermediate',
+languages TEXT[], -- Array of languages spoken
+resume_url TEXT,
+portfolio_url TEXT,
+linkedin_url TEXT,
+github_url TEXT,
+website_url TEXT,
+is_available BOOLEAN DEFAULT TRUE,
+profile_completion_percentage INTEGER DEFAULT 0,
+created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+- - =============================================================================
+-- 5. FREELANCER_SKILLS TABLE (many-to-many junction)
+-- =============================================================================
+CREATE TABLE freelancer_skills (
+id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+freelancer_id UUID REFERENCES freelancer_profiles(id) ON DELETE CASCADE,
+skill_id UUID REFERENCES skills(id) ON DELETE CASCADE,
+proficiency_level INTEGER CHECK (proficiency_level >= 1 AND proficiency_level <= 5) DEFAULT 3,
+years_of_experience INTEGER DEFAULT 0,
+created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+UNIQUE(freelancer_id, skill_id)
+);
+- - =============================================================================
+-- 6. WORK_EXPERIENCES TABLE
+-- =============================================================================
+CREATE TABLE work_experiences (
+id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+freelancer_id UUID REFERENCES freelancer_profiles(id) ON DELETE CASCADE,
+job_title VARCHAR(200) NOT NULL,
+company_name VARCHAR(200) NOT NULL,
+description TEXT,
+start_date DATE NOT NULL,
+end_date DATE, -- NULL for current position
+is_current BOOLEAN DEFAULT FALSE,
+location VARCHAR(200),
+employment_type VARCHAR(50) CHECK (employment_type IN ('full-time', 'part-time', 'contract', 'freelance', 'internship')),
+created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+- - =============================================================================
+-- 7. PORTFOLIO_PROJECTS TABLE
+-- =============================================================================
+CREATE TABLE portfolio_projects (
+id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+freelancer_id UUID REFERENCES freelancer_profiles(id) ON DELETE CASCADE,
+title VARCHAR(200) NOT NULL,
+description TEXT,
+project_url TEXT,
+image_urls TEXT[], -- Array of image URLs
+technologies_used TEXT[], -- Array of technologies/skills used
+project_type VARCHAR(50), -- web, mobile, design, etc.
+completion_date DATE,
+client_name VARCHAR(200),
+is_featured BOOLEAN DEFAULT FALSE,
+display_order INTEGER DEFAULT 0,
+created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+- - =============================================================================
+-- 8. EDUCATION TABLE
+-- =============================================================================
+CREATE TABLE education (
+id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+freelancer_id UUID REFERENCES freelancer_profiles(id) ON DELETE CASCADE,
+institution_name VARCHAR(200) NOT NULL,
+degree VARCHAR(200),
+field_of_study VARCHAR(200),
+start_date DATE,
+end_date DATE,
+is_current BOOLEAN DEFAULT FALSE,
+grade_gpa VARCHAR(20),
+description TEXT,
+created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+- - =============================================================================
+-- 9. CERTIFICATIONS TABLE
+-- =============================================================================
+CREATE TABLE certifications (
+id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+freelancer_id UUID REFERENCES freelancer_profiles(id) ON DELETE CASCADE,
+name VARCHAR(200) NOT NULL,
+issuing_organization VARCHAR(200) NOT NULL,
+issue_date DATE,
+expiry_date DATE,
+credential_id VARCHAR(200),
+credential_url TEXT,
+created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+- - =============================================================================
+-- 10. USER_ACTIVITY_LOGS TABLE
+-- =============================================================================
+CREATE TABLE user_activity_logs (
+id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+activity_type VARCHAR(50) NOT NULL,
+description TEXT,
+metadata JSONB,
+created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+- - =============================================================================
+-- TABLE RELATIONSHIPS SUMMARY
+-- =============================================================================
+/*
+MAIN RELATIONSHIPS:
+- profiles (1) → freelancer_profiles (1) [one-to-one]
+- freelancer_profiles (1) → freelancer_skills (many) [one-to-many]
+- freelancer_profiles (1) → portfolio_projects (many) [one-to-many]
+- freelancer_profiles (1) → work_experiences (many) [one-to-many]
+- freelancer_profiles (1) → education (many) [one-to-many]
+- freelancer_profiles (1) → certifications (many) [one-to-many]
+- skill_categories (1) → skills (many) [one-to-many]
+- skills (1) → freelancer_skills (many) [one-to-many]
+- profiles (1) → user_activity_logs (many) [one-to-many]
+
+JUNCTION TABLES:
+
+- freelancer_skills (connects freelancer_profiles ↔ skills)
+
+DATA FLOW:
+User registers → profiles table
+If freelancer → freelancer_profiles table
+Select skills → freelancer_skills junction table
+Add projects → portfolio_projects table
+Add experience → work_experiences table
+Add education → education table
+Add certifications → certifications table
+*/
+
+- - =============================================================================
+-- CURRENT DATA COUNTS (what we've built so far)
+-- =============================================================================
+/*
+✅ skill_categories: 7 categories
+✅ skills: ~80+ skills across all categories
+✅ profiles: User-created profiles (freelancers & recruiters)
